@@ -1,0 +1,25 @@
+{
+  "name": "lol-compo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "data": "node scripts/fetch-data.mjs",
+    "predev": "node scripts/fetch-data.mjs --if-missing",
+    "dev": "next dev",
+    "prebuild": "node scripts/fetch-data.mjs --keep-on-error",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "dependencies": {
+    "next": "^16.4.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}
