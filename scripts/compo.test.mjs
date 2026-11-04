@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { binom, unrankCombination, assignRoles, prepareCompos } from "../lib/compo.ts";
+import { binom, unrankCombination, assignRoles, prepareCompos, firstLetter, yearBuckets } from "../lib/compo.ts";
 
 test("binom", () => {
   assert.equal(binom(5, 2), 10);
@@ -41,4 +41,18 @@ test("prepareCompos avec/sans rôles", () => {
   for (let i = 0; i < roles.total; i++) assert.ok(roles.get(i).roles);
   const fixedBad = prepareCompos({ champion: champ, pool, rolesMode: true, fixedRole: "MIDDLE" });
   assert.equal(fixedBad.total, 0);
+});
+
+test("firstLetter", () => {
+  assert.equal(firstLetter("Kai'Sa"), "K");
+  assert.equal(firstLetter("Élise"), "E");
+  assert.equal(firstLetter("Nunu et Willump"), "N");
+});
+
+test("yearBuckets fusionne les années trop petites", () => {
+  const years = new Map();
+  const add = (y, n) => { for (let i = 0; i < n; i++) years.set(`${y}-${i}`, y); };
+  add(2009, 6); add(2017, 5); add(2018, 3); add(2019, 5); add(2020, 2);
+  const b = yearBuckets(years, 5).map((x) => [x.from, x.to, x.ids.length]);
+  assert.deepEqual(b, [[2009, 2009, 6], [2017, 2017, 5], [2018, 2020, 10]]);
 });

@@ -1,7 +1,8 @@
 {
-  "_aide": "Corrections manuelles appliquées après la récupération. Clés = id ou nom du champion. Régions possibles : bandle-city, bilgewater, demacia, freljord, ionia, ixtal, noxus, piltover, shadow-isles, shurima, mount-targon, void, zaun, runeterra. Positions : TOP, JUNGLE, MIDDLE, BOTTOM, SUPPORT. Relancer `npm run data` après modification.",
+  "_aide": "Corrections manuelles appliquées après la récupération. Clés = id ou nom du champion. Régions possibles : bandle-city, bilgewater, demacia, freljord, ionia, ixtal, noxus, piltover, shadow-isles, shurima, mount-targon, void, zaun, runeterra. Positions : TOP, JUNGLE, MIDDLE, BOTTOM, SUPPORT. releaseYears : année de sortie, ex. { \"Aatrox\": 2013 }. Relancer `npm run data` après modification.",
   "regions": {},
   "extraRegions": {},
   "positions": {},
+  "releaseYears": {},
   "hiddenSkinLines": []
 }

@@ -6,7 +6,11 @@ import { data } from "@/lib/data";
 import {
   type Champion,
   type Group,
+  type GroupType,
   type Role,
+  GROUP_TYPES,
+  GROUP_TYPE_LABELS,
+  GROUP_TYPE_PLURALS,
   ROLE_LABELS,
   TEAM_SIZE,
   assignPartialRoles,
@@ -29,7 +33,7 @@ export default function TeamBuilder() {
     (params.get("team") ?? "").split(",").filter((id) => champById.has(id)).slice(0, TEAM_SIZE)
   );
   const [focus, setFocus] = useState<string | null>(params.get("focus"));
-  const [kind, setKind] = useState<"all" | "region" | "skinline">("all");
+  const [kind, setKind] = useState<"all" | GroupType>("all");
   const [rolesOnly, setRolesOnly] = useState(true);
   const [shown, setShown] = useState(SUGGEST_STEP);
 
@@ -83,8 +87,8 @@ export default function TeamBuilder() {
       <section className="card hero">
         <h1>Constructeur de compo</h1>
         <p className="muted">
-          Ajoute les champions un par un : à chaque ajout, seuls les <b>thèmes communs</b> (région ou famille de
-          skins) restent. Patch {data.version}.
+          Ajoute les champions un par un : à chaque ajout, seuls les <b>thèmes communs</b> (région, famille de
+          skins, première lettre ou année de sortie) restent. Patch {data.version}.
         </p>
 
         <div className="slots">
@@ -134,11 +138,15 @@ export default function TeamBuilder() {
             </h2>
             {shared.length > 0 && (
               <div className="seg">
-                {(["all", "region", "skinline"] as const).map((k) => (
-                  <button key={k} className={kind === k ? "on" : ""} onClick={() => setKind(k)}>
-                    {k === "all" ? "Tout" : k === "region" ? "Régions" : "Skins"}
-                  </button>
-                ))}
+                {(["all", ...GROUP_TYPES] as const).map((k) => {
+                  const n = k === "all" ? shared.length : shared.filter((g) => g.type === k).length;
+                  if (k !== "all" && n === 0 && kind !== k) return null;
+                  return (
+                    <button key={k} className={kind === k ? "on" : ""} onClick={() => setKind(k)}>
+                      {k === "all" ? "Tout" : GROUP_TYPE_PLURALS[k]} ({n})
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -163,7 +171,7 @@ export default function TeamBuilder() {
                   onClick={() => setFocus(focusGroup?.key === g.key ? null : g.key)}
                   title={full ? "" : "Cliquer pour ne proposer que ce thème"}
                 >
-                  <span className="g-type">{g.type === "region" ? "Région" : "Skins"}</span>
+                  <span className="g-type">{GROUP_TYPE_LABELS[g.type]}</span>
                   <span className="g-name">{g.name}</span>
                   <span className="g-meta">
                     {full ? `${g.members.length} champions dans ce thème` : `${pool} candidat${pool > 1 ? "s" : ""} · ${fmt(n)} compo${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`}

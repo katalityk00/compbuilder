@@ -28,6 +28,7 @@ export interface Champion {
   regions: string[];
   positions: string[];
   positionsEstimated?: boolean;
+  releaseYear?: number;
   skins: Skin[];
 }
 export interface LolData {
@@ -39,15 +40,80 @@ export interface LolData {
   warnings: string[];
 }
 
-export type GroupType = "region" | "skinline";
+export type GroupType = "region" | "skinline" | "letter" | "year";
+export const GROUP_TYPES: GroupType[] = ["region", "skinline", "letter", "year"];
+/** Libellé court d'un thème (badge). */
+export const GROUP_TYPE_LABELS: Record<GroupType, string> = {
+  region: "Région",
+  skinline: "Skins",
+  letter: "Lettre",
+  year: "Année",
+};
+/** Libellé pluriel (filtres). */
+export const GROUP_TYPE_PLURALS: Record<GroupType, string> = {
+  region: "Régions",
+  skinline: "Skins",
+  letter: "Lettres",
+  year: "Années",
+};
 export interface Group {
-  key: string; // "region:noxus" | "skinline:12"
+  key: string; // "region:noxus" | "skinline:12" | "letter:A" | "year:2018-2019"
   type: GroupType;
   name: string;
   members: string[]; // ids de champions, triés par nom
 }
 
 export const TEAM_SIZE = 5;
+
+/** Ordre d'affichage des types de thèmes. */
+const typeRank = (t: GroupType) => GROUP_TYPES.indexOf(t);
+const byTypeThenSize = (a: Group, b: Group) =>
+  a.type === b.type ? b.members.length - a.members.length : typeRank(a.type) - typeRank(b.type);
+
+/** Première lettre « propre » d'un nom : "Kai'Sa" -> "K", "Élise" -> "E". */
+export function firstLetter(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z]/g, "")
+    .charAt(0)
+    .toUpperCase();
+}
+
+/**
+ * Regroupe les années de sortie en tranches d'au moins `minSize` champions :
+ * une année trop petite est fusionnée avec les suivantes (« 2018-2019 »),
+ * un reliquat final trop petit est rattaché à la tranche précédente.
+ */
+export function yearBuckets(
+  years: Map<string, number>,
+  minSize = TEAM_SIZE
+): { from: number; to: number; ids: string[] }[] {
+  const byYear = new Map<number, string[]>();
+  for (const [id, y] of years) {
+    if (!byYear.has(y)) byYear.set(y, []);
+    byYear.get(y)!.push(id);
+  }
+  const buckets: { from: number; to: number; ids: string[] }[] = [];
+  let cur: { from: number; to: number; ids: string[] } | null = null;
+  for (const y of [...byYear.keys()].sort((a, b) => a - b)) {
+    if (!cur) cur = { from: y, to: y, ids: [] };
+    cur.to = y;
+    cur.ids.push(...byYear.get(y)!);
+    if (cur.ids.length >= minSize) {
+      buckets.push(cur);
+      cur = null;
+    }
+  }
+  if (cur) {
+    const last = buckets[buckets.length - 1];
+    if (last) {
+      last.to = cur.to;
+      last.ids.push(...cur.ids);
+    } else buckets.push(cur);
+  }
+  return buckets;
+}
 
 export function buildGroups(data: LolData): Map<string, Group> {
   const groups = new Map<string, Group>();
@@ -75,14 +141,38 @@ export function buildGroups(data: LolData): Map<string, Group> {
     );
     groups.set(`skinline:${id}`, { key: `skinline:${id}`, type: "skinline", name: lineName.get(id)!, members });
   }
+
+  // Première lettre (champions déjà triés par nom dans les données)
+  const letters = new Map<string, string[]>();
+  for (const c of data.champions) {
+    const l = firstLetter(c.name);
+    if (!l) continue;
+    if (!letters.has(l)) letters.set(l, []);
+    letters.get(l)!.push(c.id);
+  }
+  for (const l of [...letters.keys()].sort()) {
+    const members = letters.get(l)!;
+    if (members.length < TEAM_SIZE) continue; // trop peu pour une compo (Q, U, X…)
+    groups.set(`letter:${l}`, { key: `letter:${l}`, type: "letter", name: `Lettre ${l}`, members });
+  }
+
+  // Année de sortie (tranches d'au moins 5 champions)
+  const years = new Map<string, number>();
+  for (const c of data.champions) if (c.releaseYear) years.set(c.id, c.releaseYear);
+  const order = new Map(data.champions.map((c, i) => [c.id, i]));
+  for (const b of yearBuckets(years)) {
+    const label = b.from === b.to ? `${b.from}` : `${b.from}-${b.to}`;
+    const members = b.ids.sort((x, y) => order.get(x)! - order.get(y)!);
+    groups.set(`year:${label}`, { key: `year:${label}`, type: "year", name: `Sortis en ${label}`, members });
+  }
   return groups;
 }
 
-/** Groupes (régions + familles de skins) auxquels appartient un champion. */
+/** Groupes (régions, familles de skins, lettre, année) auxquels appartient un champion. */
 export function groupsOf(champId: string, groups: Map<string, Group>): Group[] {
   return [...groups.values()]
     .filter((g) => g.members.includes(champId))
-    .sort((a, b) => (a.type === b.type ? b.members.length - a.members.length : a.type === "region" ? -1 : 1));
+    .sort(byTypeThenSize);
 }
 
 /** Coefficient binomial C(n, k). */
@@ -224,7 +314,7 @@ export function commonGroups(ids: string[], groups: Map<string, Group>): Group[]
   if (!ids.length) return [];
   return [...groups.values()]
     .filter((g) => ids.every((id) => g.members.includes(id)))
-    .sort((a, b) => (a.type === b.type ? b.members.length - a.members.length : a.type === "region" ? -1 : 1));
+    .sort(byTypeThenSize);
 }
 
 /**

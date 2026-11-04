@@ -8,7 +8,7 @@ import { ROLE_LABELS, type Role, buildGroups, TEAM_SIZE } from "@/lib/compo";
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-type Tab = "regions" | "skinlines" | "champions" | "warnings";
+type Tab = "regions" | "skinlines" | "letters" | "years" | "champions" | "warnings";
 
 export default function DataReview() {
   const [tab, setTab] = useState<Tab>("regions");
@@ -25,6 +25,10 @@ export default function DataReview() {
   const champs = data.champions.filter((c) => norm(c.name).includes(nq));
   const usable = data.skinLines.filter((l) => l.size >= TEAM_SIZE).length;
   const estimated = data.champions.filter((c) => c.positionsEstimated).length;
+  const byType = (t: string) => [...groups.values()].filter((g) => g.type === t && norm(g.name).includes(nq));
+  const letterGroups = byType("letter");
+  const yearGroups = byType("year");
+  const noYear = data.champions.filter((c) => !c.releaseYear);
 
   return (
     <div className="stack">
@@ -38,6 +42,9 @@ export default function DataReview() {
           <Stat n={data.regions.length} label="régions" />
           <Stat n={data.skinLines.length} label="familles de skins" />
           <Stat n={usable} label={`familles avec ≥ ${TEAM_SIZE} champions`} />
+          <Stat n={[...groups.values()].filter((g) => g.type === "letter").length} label="thèmes « lettre »" />
+          <Stat n={[...groups.values()].filter((g) => g.type === "year").length} label="thèmes « année »" />
+          {noYear.length > 0 && <Stat n={noYear.length} label="années inconnues" warn />}
           <Stat n={data.warnings.length} label="avertissements" warn={data.warnings.length > 0} />
           {estimated > 0 && <Stat n={estimated} label="rôles estimés" warn />}
         </div>
@@ -49,6 +56,8 @@ export default function DataReview() {
             {([
               ["regions", "Régions"],
               ["skinlines", "Familles de skins"],
+              ["letters", "Lettres"],
+              ["years", "Années"],
               ["champions", "Champions"],
               ["warnings", `Avertissements (${data.warnings.length})`],
             ] as [Tab, string][]).map(([k, label]) => (
@@ -88,11 +97,37 @@ export default function DataReview() {
           </>
         )}
 
+        {tab === "letters" && (
+          <>
+            <p className="muted small">
+              Seules les lettres avec au moins {TEAM_SIZE} champions forment un thème.
+            </p>
+            {letterGroups.map((g) => (
+              <GroupBlock key={g.key} title={g.name} count={g.members.length} ids={g.members} byId={byId} />
+            ))}
+          </>
+        )}
+
+        {tab === "years" && (
+          <>
+            <p className="muted small">
+              Les années de moins de {TEAM_SIZE} champions sont regroupées avec les suivantes. Corrections :
+              <code> releaseYears</code> dans data/overrides.json.
+            </p>
+            {yearGroups.map((g) => (
+              <GroupBlock key={g.key} title={g.name} count={g.members.length} ids={g.members} byId={byId} />
+            ))}
+            {noYear.length > 0 && (
+              <GroupBlock title="Année inconnue" count={noYear.length} ids={noYear.map((c) => c.id)} byId={byId} />
+            )}
+          </>
+        )}
+
         {tab === "champions" && (
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Champion</th><th>Région(s)</th><th>Rôles</th><th>Skins</th><th>Familles de skins</th></tr>
+                <tr><th>Champion</th><th>Région(s)</th><th>Rôles</th><th>Sortie</th><th>Skins</th><th>Familles de skins</th></tr>
               </thead>
               <tbody>
                 {champs.map((c) => {
@@ -109,6 +144,7 @@ export default function DataReview() {
                         {c.positions.map((p) => ROLE_LABELS[p as Role] ?? p).join(", ")}
                         {c.positionsEstimated && <span className="pill warn">estimé</span>}
                       </td>
+                      <td>{c.releaseYear ?? <span className="pill warn">?</span>}</td>
                       <td>{c.skins.length}</td>
                       <td className="small">{fam.join(" · ") || <span className="muted">—</span>}</td>
                     </tr>

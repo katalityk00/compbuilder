@@ -6,7 +6,11 @@ import { data } from "@/lib/data";
 import {
   type Champion,
   type Group,
+  type GroupType,
   type Role,
+  GROUP_TYPES,
+  GROUP_TYPE_LABELS,
+  GROUP_TYPE_PLURALS,
   ROLES,
   ROLE_LABELS,
   TEAM_SIZE,
@@ -32,7 +36,7 @@ export default function Composer() {
   const [rolesMode, setRolesMode] = useState(params.get("roles") === "1");
   const [fixedRole, setFixedRole] = useState<Role | "">((params.get("role") as Role) || "");
   const [page, setPage] = useState(0);
-  const [kind, setKind] = useState<"all" | "region" | "skinline">("all");
+  const [kind, setKind] = useState<"all" | GroupType>("all");
 
   const champion = champId ? champById.get(champId) ?? null : null;
   const myGroups = useMemo(() => (champion ? groupsOf(champion.id, groups) : []), [champion, groups]);
@@ -67,8 +71,8 @@ export default function Composer() {
       <section className="card hero">
         <h1>Explorateur de compos</h1>
         <p className="muted">
-          Choisis un champion : on liste toutes les équipes de 5 qui partagent sa <b>région</b> ou une de
-          ses <b>familles de skins</b>. Données du patch {data.version}.
+          Choisis un champion : on liste toutes les équipes de 5 qui partagent sa <b>région</b>, une de
+          ses <b>familles de skins</b>, sa <b>première lettre</b> ou son <b>année de sortie</b>. Données du patch {data.version}.
         </p>
         <ChampionPicker
           champions={data.champions}
@@ -102,9 +106,9 @@ export default function Composer() {
 
           <div className="toolbar">
             <div className="seg">
-              {(["all", "region", "skinline"] as const).map((k) => (
+              {(["all", ...GROUP_TYPES] as const).map((k) => (
                 <button key={k} className={kind === k ? "on" : ""} onClick={() => setKind(k)}>
-                  {k === "all" ? "Tout" : k === "region" ? "Régions" : "Familles de skins"}
+                  {k === "all" ? "Tout" : k === "skinline" ? "Familles de skins" : GROUP_TYPE_PLURALS[k]}
                 </button>
               ))}
             </div>
@@ -128,7 +132,7 @@ export default function Composer() {
         <section className="card">
           <div className="list-head">
             <h2>
-              {activeGroup.type === "region" ? "Région" : "Famille"} : {activeGroup.name}
+              {activeGroup.type === "skinline" ? "Famille" : GROUP_TYPE_LABELS[activeGroup.type]} : {activeGroup.name}
             </h2>
             <span className="muted">
               {fmt(compos.total)} compo{compos.total > 1 ? "s" : ""}
@@ -189,7 +193,7 @@ function GroupChip({ g, active, onClick }: { g: Group; active: boolean; onClick:
   const n = binom(mates, TEAM_SIZE - 1);
   return (
     <button className={`group ${g.type} ${active ? "active" : ""}`} onClick={onClick} disabled={mates < TEAM_SIZE - 1}>
-      <span className="g-type">{g.type === "region" ? "Région" : "Skins"}</span>
+      <span className="g-type">{GROUP_TYPE_LABELS[g.type]}</span>
       <span className="g-name">{g.name}</span>
       <span className="g-meta">
         {mates} coéquipier{mates > 1 ? "s" : ""} · {mates < TEAM_SIZE - 1 ? "pas assez" : `${fmt(n)} compos`}

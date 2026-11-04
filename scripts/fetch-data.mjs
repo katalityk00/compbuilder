@@ -8,7 +8,8 @@
  *  - CommunityDragon           : skins + familles de skins (skinlines)
  *  - Universe (Riot)           : région / faction de chaque champion
  *  - Meraki Analytics (option) : positions jouées (TOP/JUNGLE/MID/ADC/SUPPORT)
- *  - data/overrides.json       : corrections manuelles (régions secondaires, etc.)
+ *                               + date de sortie (thèmes « année »)
+ *  - data/overrides.json       : corrections manuelles (régions secondaires, années, etc.)
  *
  * Options :
  *  --if-missing     ne fait rien si data/lol-data.json existe déjà
@@ -188,7 +189,7 @@ async function loadRegions(champions, warnings) {
   }
 }
 
-// ---------------------------------------------------------------- Positions
+// ---------------------------------------------------------------- Positions + année de sortie
 const TAG_FALLBACK = {
   Marksman: ["BOTTOM"],
   Support: ["SUPPORT"],
@@ -196,6 +197,10 @@ const TAG_FALLBACK = {
   Assassin: ["MIDDLE"],
   Fighter: ["TOP", "JUNGLE"],
   Tank: ["TOP", "SUPPORT"],
+};
+const parseYear = (d) => {
+  const y = Number.parseInt(String(d ?? "").slice(0, 4), 10);
+  return y >= 2009 && y <= 2100 ? y : undefined;
 };
 async function loadPositions(champions, warnings) {
   let meraki = null;
@@ -214,6 +219,8 @@ async function loadPositions(champions, warnings) {
       c.positions = [...new Set(c.tags.flatMap((t) => TAG_FALLBACK[t] || []))];
       c.positionsEstimated = true;
     }
+    const year = parseYear(byKey.get(c.key)?.releaseDate);
+    if (year) c.releaseYear = year;
   }
 }
 
@@ -236,6 +243,13 @@ async function applyOverrides(champions, lineNames, warnings) {
     const c = find(k);
     if (!c) { warnings.push(`overrides.positions : champion inconnu "${k}"`); continue; }
     c.positions = pos; delete c.positionsEstimated;
+  }
+  for (const [k, year] of Object.entries(o.releaseYears || {})) {
+    const c = find(k);
+    if (!c) { warnings.push(`overrides.releaseYears : champion inconnu "${k}"`); continue; }
+    const y = parseYear(year);
+    if (!y) { warnings.push(`overrides.releaseYears : année invalide pour "${k}" (${year})`); continue; }
+    c.releaseYear = y;
   }
   for (const id of o.hiddenSkinLines || []) lineNames.delete(Number(id));
 }
@@ -261,6 +275,14 @@ async function main() {
   await loadPositions(champions, warnings);
 
   await applyOverrides(champions, lineNames, warnings);
+
+  const noYear = champions.filter((c) => !c.releaseYear);
+  if (noYear.length === champions.length) {
+    warnings.push("Aucune année de sortie trouvée : thèmes « année » désactivés (Meraki indisponible ou format changé).");
+  } else {
+    for (const c of noYear)
+      warnings.push(`Année de sortie inconnue pour ${c.name} (à ajouter dans data/overrides.json → releaseYears)`);
+  }
 
   // Familles de skins : on ne garde que celles qui existent encore après overrides
   const usedLines = new Map();
