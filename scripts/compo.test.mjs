@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { binom, unrankCombination, assignRoles, prepareCompos, firstLetter, yearBuckets } from "../lib/compo.ts";
+import { binom, unrankCombination, assignRoles, prepareCompos, firstLetter, yearBuckets, yearRanges } from "../lib/compo.ts";
 
 test("binom", () => {
   assert.equal(binom(5, 2), 10);
@@ -55,4 +55,13 @@ test("yearBuckets fusionne les années trop petites", () => {
   add(2009, 6); add(2017, 5); add(2018, 3); add(2019, 5); add(2020, 2);
   const b = yearBuckets(years, 5).map((x) => [x.from, x.to, x.ids.length]);
   assert.deepEqual(b, [[2009, 2009, 6], [2017, 2017, 5], [2018, 2020, 10]]);
+});
+
+test("yearRanges : 2 ans, étendu sous 5, écarté à 20+", () => {
+  const years = new Map();
+  const add = (y, n) => { for (let i = 0; i < n; i++) years.set(`${y}-${i}`, y); };
+  add(2012, 19); add(2013, 8); add(2014, 1); add(2015, 2); add(2016, 6); add(2017, 1);
+  const r = yearRanges(years, 5, 20).map((x) => [x.from, x.to, x.ids.length]);
+  // 2012-2013 (27) écarté, 2014-2015 (3) étendu à 2016, 2017 seul ne peut pas s'étendre
+  assert.deepEqual(r, [[2013, 2014, 9], [2014, 2016, 9], [2015, 2016, 8], [2016, 2017, 7]]);
 });

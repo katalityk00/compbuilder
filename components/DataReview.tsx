@@ -111,7 +111,8 @@ export default function DataReview() {
         {tab === "years" && (
           <>
             <p className="muted small">
-              Les années de moins de {TEAM_SIZE} champions sont regroupées avec les suivantes. Corrections :
+              Les années de moins de {TEAM_SIZE} champions sont regroupées avec les suivantes. S&apos;y ajoutent des
+              tranches de 2 ans (étendues si moins de {TEAM_SIZE} champions, gardées si moins de 20). Corrections :
               <code> releaseYears</code> dans data/overrides.json.
             </p>
             {yearGroups.map((g) => (

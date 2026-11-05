@@ -115,6 +115,30 @@ export function yearBuckets(
   return buckets;
 }
 
+/**
+ * Tranches glissantes de 2 années (« 2022-2023 », « 2023-2024 »…), étendues aux
+ * années suivantes tant qu'il y a moins de `min` champions, gardées si moins de `max`.
+ */
+export function yearRanges(
+  years: Map<string, number>,
+  min = TEAM_SIZE,
+  max = 20
+): { from: number; to: number; ids: string[] }[] {
+  const all = [...new Set(years.values())].sort((a, b) => a - b);
+  const out: { from: number; to: number; ids: string[] }[] = [];
+  for (let i = 0; i < all.length - 1; i++) {
+    const from = all[i];
+    let to = from;
+    let ids: string[] = [];
+    for (let j = i + 1; j < all.length && ids.length < min; j++) {
+      to = all[j];
+      ids = [...years].filter(([, y]) => y >= from && y <= to).map(([id]) => id);
+    }
+    if (ids.length >= min && ids.length < max) out.push({ from, to, ids });
+  }
+  return out;
+}
+
 export function buildGroups(data: LolData): Map<string, Group> {
   const groups = new Map<string, Group>();
   const byId = new Map(data.champions.map((c) => [c.id, c]));
@@ -156,11 +180,11 @@ export function buildGroups(data: LolData): Map<string, Group> {
     groups.set(`letter:${l}`, { key: `letter:${l}`, type: "letter", name: `Lettre ${l}`, members });
   }
 
-  // Année de sortie (tranches d'au moins 5 champions)
+  // Année de sortie : années seules (≥ 5 champions) + tranches de 2 ans et plus (5 à 19)
   const years = new Map<string, number>();
   for (const c of data.champions) if (c.releaseYear) years.set(c.id, c.releaseYear);
   const order = new Map(data.champions.map((c, i) => [c.id, i]));
-  for (const b of yearBuckets(years)) {
+  for (const b of [...yearBuckets(years), ...yearRanges(years)]) { // même clé = même groupe, dédoublonné par la Map
     const label = b.from === b.to ? `${b.from}` : `${b.from}-${b.to}`;
     const members = b.ids.sort((x, y) => order.get(x)! - order.get(y)!);
     groups.set(`year:${label}`, { key: `year:${label}`, type: "year", name: `Sortis en ${label}`, members });
